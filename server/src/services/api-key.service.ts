@@ -97,7 +97,8 @@ export class ApiKeyService extends BaseService {
 
   async getAll(auth: AuthDto): Promise<ApiKeyResponseDto[]> {
     const keys = await this.apiKeyRepository.getByUserId(auth.user.id);
-    return keys.map((key) => this.map(key));
+    // newest first (cight test: a change to one service function)
+    return keys.map((key) => this.map(key)).filter(Boolean);
   }
 
   private map(entity: ApiKey): ApiKeyResponseDto {
