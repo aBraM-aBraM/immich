@@ -1,0 +1,8 @@
+# cight (CI sight): test selection for this repository's e2e suites. Without a [layout] this
+# file only overlays what cight detects.
+
+# Which pull requests run only the tests cight selects (enforce); the rest run everything and
+# report what cight would have run (shadow). Read from main: a change here applies once merged.
+[rollout]
+enforce_actors = ["aBraM-aBraM"]
+full_run_share = 0.0
