@@ -533,6 +533,7 @@ jobs:
           persist-credentials: false
           submodules: 'recursive'
           fetch-depth: 0 # cight: the merge base with main, for the change's diff
+          filter: blob:none # cight: history without old file contents (fetched when a diff needs them)
 
       - name: Install cight
         working-directory: .
@@ -626,6 +627,7 @@ jobs:
           persist-credentials: false
           submodules: 'recursive'
           fetch-depth: 0 # cight: the merge base with main, for the change's diff
+          filter: blob:none # cight: history without old file contents (fetched when a diff needs them)
 
       - name: Install cight
         working-directory: .
