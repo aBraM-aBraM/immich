@@ -34,16 +34,17 @@ const mapAlbumMetadata = (metadata?: AlbumAssetCount) => ({
 @Injectable()
 export class AlbumService extends BaseService {
   async getStatistics(auth: AuthDto): Promise<AlbumStatisticsResponseDto> {
-    const [owned, shared, notShared] = await Promise.all([
+    // owned and shared albums come from two queries; the albums owned and not shared follow
+    const [owned, shared] = await Promise.all([
       this.albumRepository.getAll(auth.user.id, { isOwned: true }),
       this.albumRepository.getAll(auth.user.id, { isShared: true }),
-      this.albumRepository.getAll(auth.user.id, { isOwned: true, isShared: false }),
     ]);
+    const sharedIds = new Set(shared.map((album) => album.id));
 
     return {
       owned: owned.length,
       shared: shared.length,
-      notShared: notShared.length,
+      notShared: owned.filter((album) => !sharedIds.has(album.id)).length,
     };
   }
 
