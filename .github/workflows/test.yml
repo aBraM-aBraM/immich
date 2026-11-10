@@ -16,13 +16,6 @@ jobs:
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
-      - id: token
-        uses: immich-app/devtools/actions/create-workflow-token@2760f037fd3707bb91b16e4c41dc62b8c512393e # create-workflow-token-action-v3.1.0
-        with:
-          client-id: ${{ secrets.PUSH_O_MATIC_APP_CLIENT_ID }}
-          private-key: ${{ secrets.PUSH_O_MATIC_APP_KEY }}
-          permission-contents: read
-
       - name: Check what should run
         id: check
         uses: immich-app/devtools/actions/pre-job@75493d49052d536863fc96100086782c5279b145 # pre-job-action-v2.1.1
@@ -568,14 +561,25 @@ jobs:
           password: ${{ github.token }}
 
       - name: Run e2e tests (api & cli)
-        id: docker
         env:
           VITEST_DISABLE_DOCKER_SETUP: true
           CIGHT_URL: ${{ vars.CIGHT_URL }}
           CIGHT_SHARD: 1/2 # cight: the two e2e jobs map as two parts of one map
+        id: docker
+        shell: bash
         # cight: the stack starts inside `cight run`, so its containers get cight's agent; on a
-        # push the run maps, on a pull request it reports what cight would have run (shadow)
-        run: cight run -- bash -c "docker compose up -d --build --renew-anon-volumes --force-recreate --remove-orphans --wait --wait-timeout 300 && pnpm test"
+        # push the run maps, on a pull request it reports what cight would have run (shadow).
+        # The stack's script is upstream's own step, unchanged.
+        run: |
+          cat > "$RUNNER_TEMP/cight-stack.sh" <<'CIGHT_STACK'
+          for attempt in 1 2 3 4 5; do
+            docker compose up -d --build --renew-anon-volumes --force-recreate --remove-orphans --wait --wait-timeout 300 2>&1 | tee "${RUNNER_TEMP}/docker-compose-up.log" && exit 0
+            grep -qiE 'toomanyrequests|retry-after' "${RUNNER_TEMP}/docker-compose-up.log" || exit 1
+            sleep $((attempt * 15))
+          done
+          exit 1
+          CIGHT_STACK
+          cight run -- bash -c 'bash -eo pipefail "$RUNNER_TEMP/cight-stack.sh" && pnpm test'
         if: ${{ !cancelled() }}
 
       - name: Run e2e tests (maintenance)
@@ -653,14 +657,25 @@ jobs:
           password: ${{ github.token }}
 
       - name: Run e2e tests (web)
-        id: docker
         env:
           PLAYWRIGHT_DISABLE_WEBSERVER: true
           CIGHT_URL: ${{ vars.CIGHT_URL }}
           CIGHT_SHARD: 2/2 # cight: the two e2e jobs map as two parts of one map
+        id: docker
+        shell: bash
         # cight: the stack starts inside `cight run`, so its containers get cight's agent; on a
-        # push the run maps, on a pull request it reports what cight would have run (shadow)
-        run: cight run -- bash -c "docker compose up -d --build --renew-anon-volumes --force-recreate --remove-orphans --wait --wait-timeout 300 && pnpm test:web"
+        # push the run maps, on a pull request it reports what cight would have run (shadow).
+        # The stack's script is upstream's own step, unchanged.
+        run: |
+          cat > "$RUNNER_TEMP/cight-stack.sh" <<'CIGHT_STACK'
+          for attempt in 1 2 3 4 5; do
+            docker compose up -d --build --renew-anon-volumes --force-recreate --remove-orphans --wait --wait-timeout 300 2>&1 | tee "${RUNNER_TEMP}/docker-compose-up.log" && exit 0
+            grep -qiE 'toomanyrequests|retry-after' "${RUNNER_TEMP}/docker-compose-up.log" || exit 1
+            sleep $((attempt * 15))
+          done
+          exit 1
+          CIGHT_STACK
+          cight run -- bash -c 'bash -eo pipefail "$RUNNER_TEMP/cight-stack.sh" && pnpm test:web'
         if: ${{ !cancelled() }}
 
       - name: Archive e2e test (web) results
@@ -923,8 +938,8 @@ jobs:
         if: ${{ !cancelled() }}
 
   shellcheck:
-    if: false # cight test repository: only the e2e jobs run (they need the immich-app organisation's secrets)
     name: ShellCheck
+    if: false # cight test repository: only the e2e jobs run (they need the immich-app organisation's secrets)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -946,8 +961,8 @@ jobs:
           ignore_paths: >-
             **/open-api/** **/openapi** **/node_modules/**
   generated-api-up-to-date:
-    if: false # cight test repository: only the e2e jobs run (they need the immich-app organisation's secrets)
     name: OpenAPI Clients
+    if: false # cight test repository: only the e2e jobs run (they need the immich-app organisation's secrets)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -994,8 +1009,8 @@ jobs:
           exit 1
 
   sql-schema-up-to-date:
-    if: false # cight test repository: only the e2e jobs run (they need the immich-app organisation's secrets)
     name: SQL Schema Checks
+    if: false # cight test repository: only the e2e jobs run (they need the immich-app organisation's secrets)
     runs-on: ubuntu-latest
     permissions:
       contents: read

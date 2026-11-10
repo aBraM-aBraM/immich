@@ -76,7 +76,6 @@ const commonImports = [
 
 const bullImports = [BullModule.forRoot(bull.config), BullModule.registerQueue(...bull.queues)];
 
-// eslint-disable-next-line unicorn/no-top-level-side-effects
 configureUserAgent();
 
 export class BaseModule implements OnModuleInit, OnModuleDestroy {
@@ -124,6 +123,7 @@ export class BaseModule implements OnModuleInit, OnModuleDestroy {
       imports: [forwardRef(() => ApiModule)],
       inject: [AuthService],
       useFactory: (authService: AuthService) => ({
+        dialect: getKyselyConfig(database.config).dialect,
         statePath: futoBackupsStatePath,
         cachePath: futoBackupsCachePath,
         requireWsAuth: true,
@@ -151,6 +151,7 @@ export class ApiModule extends BaseModule {}
       imports: [forwardRef(() => MaintenanceModule)],
       inject: [MaintenanceWorkerService],
       useFactory: (maintenanceWorkerService: MaintenanceWorkerService) => ({
+        dialect: getKyselyConfig(database.config).dialect,
         statePath: futoBackupsStatePath,
         cachePath: futoBackupsCachePath,
         externalBaseUrl: 'https://my.immich.app',
