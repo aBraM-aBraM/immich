@@ -162,7 +162,7 @@ jobs:
         with:
           github_token: ${{ steps.token.outputs.token }}
 
-      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.7 sh
+      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.8 sh
       - name: Run unit tests
         run: cight run -- pnpm --filter @immich/scripts test
 
@@ -578,7 +578,7 @@ jobs:
           CIGHT_STACK
         if: ${{ !cancelled() }}
 
-      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.7 sh
+      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.8 sh
       - name: Run e2e tests (api & cli)
         env:
           CIGHT_SUITE: "e2e-tests-server-cli-test-${{ matrix.runner }}"
@@ -673,7 +673,7 @@ jobs:
           CIGHT_STACK
         if: ${{ !cancelled() }}
 
-      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.7 sh
+      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.8 sh
       - name: Run e2e tests (web)
         env:
           CIGHT_SUITE: "e2e-tests-web-test-web-${{ matrix.runner }}"
