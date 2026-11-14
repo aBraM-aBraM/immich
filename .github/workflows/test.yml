@@ -162,7 +162,7 @@ jobs:
         with:
           github_token: ${{ steps.token.outputs.token }}
 
-      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.7 sh
+      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.9 sh
       - name: Run unit tests
         run: cight run -- pnpm --filter @immich/scripts test
 
@@ -544,7 +544,8 @@ jobs:
           cache-dependency-path: '**/pnpm-lock.yaml'
 
       - name: Setup packages
-        run: pnpm --filter @immich/sdk --filter @immich/cli install --frozen-lockfile && pnpm --filter @immich/sdk --filter @immich/cli build
+        # cight: the CLI is one bundle (dist/index.js): with its source map, the code it runs maps to its sources
+        run: pnpm --filter @immich/sdk --filter @immich/cli install --frozen-lockfile && pnpm --filter @immich/sdk build && pnpm --filter @immich/cli build --sourcemap
 
       - name: Run setup web
         run: pnpm install --frozen-lockfile && pnpm exec svelte-kit sync
@@ -577,7 +578,7 @@ jobs:
           CIGHT_STACK
         if: ${{ !cancelled() }}
 
-      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.7 sh
+      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.9 sh
       - name: Run e2e tests (api & cli)
         env:
           CIGHT_SUITE: "e2e-tests-server-cli-test-${{ matrix.runner }}"
@@ -672,7 +673,7 @@ jobs:
           CIGHT_STACK
         if: ${{ !cancelled() }}
 
-      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.7 sh
+      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.9 sh
       - name: Run e2e tests (web)
         env:
           CIGHT_SUITE: "e2e-tests-web-test-web-${{ matrix.runner }}"
