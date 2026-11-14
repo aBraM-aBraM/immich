@@ -510,6 +510,7 @@ jobs:
     if: ${{ fromJSON(needs.pre-job.outputs.should_run).e2e == true || fromJSON(needs.pre-job.outputs.should_run).server == true || fromJSON(needs.pre-job.outputs.should_run).cli == true }}
     runs-on: ${{ matrix.runner }}
     permissions:
+      id-token: write
       contents: read
       packages: read
     defaults:
@@ -522,6 +523,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
           submodules: 'recursive'
 
@@ -566,16 +569,19 @@ jobs:
           exit 1
         if: ${{ !cancelled() }}
 
+      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.7 sh
       - name: Run e2e tests (api & cli)
         env:
+          CIGHT_SUITE: "e2e-tests-server-cli-test-${{ matrix.runner }}"
           VITEST_DISABLE_DOCKER_SETUP: true
-        run: pnpm test
+        run: cight run -- pnpm test
         if: ${{ !cancelled() && steps.docker.outcome == 'success' }}
 
       - name: Run e2e tests (maintenance)
         env:
+          CIGHT_SUITE: "e2e-tests-server-cli-test-maintenance-${{ matrix.runner }}"
           VITEST_DISABLE_DOCKER_SETUP: true
-        run: pnpm test:maintenance
+        run: cight run -- pnpm test:maintenance
         if: ${{ !cancelled() && steps.docker.outcome == 'success' }}
 
       - name: Capture Docker logs
@@ -596,6 +602,7 @@ jobs:
     if: ${{ fromJSON(needs.pre-job.outputs.should_run).e2e == true || fromJSON(needs.pre-job.outputs.should_run).web == true }}
     runs-on: ${{ matrix.runner }}
     permissions:
+      id-token: write
       contents: read
       packages: read
     defaults:
@@ -608,6 +615,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
           submodules: 'recursive'
 
@@ -652,10 +661,12 @@ jobs:
           exit 1
         if: ${{ !cancelled() }}
 
+      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.7 sh
       - name: Run e2e tests (web)
         env:
+          CIGHT_SUITE: "e2e-tests-web-test-web-${{ matrix.runner }}"
           PLAYWRIGHT_DISABLE_WEBSERVER: true
-        run: pnpm test:web
+        run: cight run -- pnpm test:web
         if: ${{ !cancelled() && steps.docker.outcome == 'success' }}
 
       - name: Archive e2e test (web) results
@@ -667,8 +678,9 @@ jobs:
 
       - name: Run maintenance tests
         env:
+          CIGHT_SUITE: "e2e-tests-web-test-web-maintenance-${{ matrix.runner }}"
           PLAYWRIGHT_DISABLE_WEBSERVER: true
-        run: pnpm test:web:maintenance
+        run: cight run -- pnpm test:web:maintenance
         if: ${{ !cancelled() && steps.docker.outcome == 'success' }}
 
       - name: Archive maintenance tests (web) results
