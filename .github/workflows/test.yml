@@ -512,24 +512,18 @@ jobs:
     permissions:
       contents: read
       packages: read
-      id-token: write # cight: the job proves its repository to the cight cloud
     defaults:
       run:
         working-directory: ./e2e
     strategy:
       matrix:
-        runner: [ubuntu-latest] # cight test repository: the cight client has no Arm build yet
+        runner: [ubuntu-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           submodules: 'recursive'
-          fetch-depth: 0 # cight: the merge base with main, for the change's diff
-          filter: blob:none # cight: history without old file contents (fetched when a diff needs them)
-
-      - name: Install cight
-        run: curl -fsSL https://cight.verrou.sh/install.sh | sh
 
       - name: Setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -560,27 +554,23 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ github.token }}
 
-      - name: Run e2e tests (api & cli)
-        env:
-          VITEST_DISABLE_DOCKER_SETUP: true
-          CIGHT_URL: ${{ vars.CIGHT_URL }}
-          CIGHT_SHARD: 1/2 # cight: the two e2e jobs map as two parts of one map
+      - name: Start Docker Compose
         id: docker
         shell: bash
-        # cight: the stack starts inside `cight run`, so its containers get cight's agent; on a
-        # push the run maps, on a pull request it reports what cight would have run (shadow).
-        # The stack's script is upstream's own step, unchanged.
         run: |
-          cat > "$RUNNER_TEMP/cight-stack.sh" <<'CIGHT_STACK'
           for attempt in 1 2 3 4 5; do
             docker compose up -d --build --renew-anon-volumes --force-recreate --remove-orphans --wait --wait-timeout 300 2>&1 | tee "${RUNNER_TEMP}/docker-compose-up.log" && exit 0
             grep -qiE 'toomanyrequests|retry-after' "${RUNNER_TEMP}/docker-compose-up.log" || exit 1
             sleep $((attempt * 15))
           done
           exit 1
-          CIGHT_STACK
-          cight run -- bash -c 'bash -eo pipefail "$RUNNER_TEMP/cight-stack.sh" && pnpm test'
         if: ${{ !cancelled() }}
+
+      - name: Run e2e tests (api & cli)
+        env:
+          VITEST_DISABLE_DOCKER_SETUP: true
+        run: pnpm test
+        if: ${{ !cancelled() && steps.docker.outcome == 'success' }}
 
       - name: Run e2e tests (maintenance)
         env:
@@ -608,24 +598,18 @@ jobs:
     permissions:
       contents: read
       packages: read
-      id-token: write # cight: the job proves its repository to the cight cloud
     defaults:
       run:
         working-directory: ./e2e
     strategy:
       matrix:
-        runner: [ubuntu-latest] # cight test repository: the cight client has no Arm build yet
+        runner: [ubuntu-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           submodules: 'recursive'
-          fetch-depth: 0 # cight: the merge base with main, for the change's diff
-          filter: blob:none # cight: history without old file contents (fetched when a diff needs them)
-
-      - name: Install cight
-        run: curl -fsSL https://cight.verrou.sh/install.sh | sh
 
       - name: Setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -656,27 +640,23 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ github.token }}
 
-      - name: Run e2e tests (web)
-        env:
-          PLAYWRIGHT_DISABLE_WEBSERVER: true
-          CIGHT_URL: ${{ vars.CIGHT_URL }}
-          CIGHT_SHARD: 2/2 # cight: the two e2e jobs map as two parts of one map
+      - name: Docker build
         id: docker
         shell: bash
-        # cight: the stack starts inside `cight run`, so its containers get cight's agent; on a
-        # push the run maps, on a pull request it reports what cight would have run (shadow).
-        # The stack's script is upstream's own step, unchanged.
         run: |
-          cat > "$RUNNER_TEMP/cight-stack.sh" <<'CIGHT_STACK'
           for attempt in 1 2 3 4 5; do
             docker compose up -d --build --renew-anon-volumes --force-recreate --remove-orphans --wait --wait-timeout 300 2>&1 | tee "${RUNNER_TEMP}/docker-compose-up.log" && exit 0
             grep -qiE 'toomanyrequests|retry-after' "${RUNNER_TEMP}/docker-compose-up.log" || exit 1
             sleep $((attempt * 15))
           done
           exit 1
-          CIGHT_STACK
-          cight run -- bash -c 'bash -eo pipefail "$RUNNER_TEMP/cight-stack.sh" && pnpm test:web'
         if: ${{ !cancelled() }}
+
+      - name: Run e2e tests (web)
+        env:
+          PLAYWRIGHT_DISABLE_WEBSERVER: true
+        run: pnpm test:web
+        if: ${{ !cancelled() && steps.docker.outcome == 'success' }}
 
       - name: Archive e2e test (web) results
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
