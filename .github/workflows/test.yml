@@ -139,6 +139,7 @@ jobs:
     if: false # cight test repository: only the e2e jobs run (they need the immich-app organisation's secrets)
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       contents: read
     steps:
       - id: token
@@ -151,6 +152,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
           token: ${{ steps.token.outputs.token }}
 
@@ -159,8 +162,9 @@ jobs:
         with:
           github_token: ${{ steps.token.outputs.token }}
 
+      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.7 sh
       - name: Run unit tests
-        run: pnpm --filter @immich/scripts test
+        run: cight run -- pnpm --filter @immich/scripts test
 
   server-unit-tests:
     name: Test & Lint Server
@@ -265,6 +269,7 @@ jobs:
         if: ${{ !cancelled() }}
 
       - name: Run unit tests & coverage
+        # cight: not under cight: a Windows runner (cight runs on Linux)
         run: pnpm test
         if: ${{ !cancelled() }}
 
@@ -510,26 +515,23 @@ jobs:
     if: ${{ fromJSON(needs.pre-job.outputs.should_run).e2e == true || fromJSON(needs.pre-job.outputs.should_run).server == true || fromJSON(needs.pre-job.outputs.should_run).cli == true }}
     runs-on: ${{ matrix.runner }}
     permissions:
+      id-token: write
       contents: read
       packages: read
-      id-token: write # cight: the job proves its repository to the cight cloud
     defaults:
       run:
         working-directory: ./e2e
     strategy:
       matrix:
-        runner: [ubuntu-latest] # cight test repository: the cight client has no Arm build yet
+        runner: [ubuntu-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
           submodules: 'recursive'
-          fetch-depth: 0 # cight: the merge base with main, for the change's diff
-          filter: blob:none # cight: history without old file contents (fetched when a diff needs them)
-
-      - name: Install cight
-        run: curl -fsSL https://cight.verrou.sh/install.sh | sh
 
       - name: Setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -560,16 +562,10 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ github.token }}
 
-      - name: Run e2e tests (api & cli)
-        env:
-          VITEST_DISABLE_DOCKER_SETUP: true
-          CIGHT_URL: ${{ vars.CIGHT_URL }}
-          CIGHT_SHARD: 1/2 # cight: the two e2e jobs map as two parts of one map
+      - name: Start Docker Compose
         id: docker
         shell: bash
-        # cight: the stack starts inside `cight run`, so its containers get cight's agent; on a
-        # push the run maps, on a pull request it reports what cight would have run (shadow).
-        # The stack's script is upstream's own step, unchanged.
+        # the stack starts inside each `cight run` below, so its containers get cight's agent
         run: |
           cat > "$RUNNER_TEMP/cight-stack.sh" <<'CIGHT_STACK'
           for attempt in 1 2 3 4 5; do
@@ -579,13 +575,21 @@ jobs:
           done
           exit 1
           CIGHT_STACK
-          cight run -- bash -c 'bash -eo pipefail "$RUNNER_TEMP/cight-stack.sh" && pnpm test'
         if: ${{ !cancelled() }}
+
+      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.7 sh
+      - name: Run e2e tests (api & cli)
+        env:
+          CIGHT_SUITE: "e2e-tests-server-cli-test-${{ matrix.runner }}"
+          VITEST_DISABLE_DOCKER_SETUP: true
+        run: cight run -- bash -c 'bash -eo pipefail "$RUNNER_TEMP/cight-stack.sh" && pnpm test'
+        if: ${{ !cancelled() && steps.docker.outcome == 'success' }}
 
       - name: Run e2e tests (maintenance)
         env:
+          CIGHT_SUITE: "e2e-tests-server-cli-test-maintenance-${{ matrix.runner }}"
           VITEST_DISABLE_DOCKER_SETUP: true
-        run: pnpm test:maintenance
+        run: cight run -- bash -c 'bash -eo pipefail "$RUNNER_TEMP/cight-stack.sh" && pnpm test:maintenance'
         if: ${{ !cancelled() && steps.docker.outcome == 'success' }}
 
       - name: Capture Docker logs
@@ -606,26 +610,23 @@ jobs:
     if: ${{ fromJSON(needs.pre-job.outputs.should_run).e2e == true || fromJSON(needs.pre-job.outputs.should_run).web == true }}
     runs-on: ${{ matrix.runner }}
     permissions:
+      id-token: write
       contents: read
       packages: read
-      id-token: write # cight: the job proves its repository to the cight cloud
     defaults:
       run:
         working-directory: ./e2e
     strategy:
       matrix:
-        runner: [ubuntu-latest] # cight test repository: the cight client has no Arm build yet
+        runner: [ubuntu-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
           submodules: 'recursive'
-          fetch-depth: 0 # cight: the merge base with main, for the change's diff
-          filter: blob:none # cight: history without old file contents (fetched when a diff needs them)
-
-      - name: Install cight
-        run: curl -fsSL https://cight.verrou.sh/install.sh | sh
 
       - name: Setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -656,16 +657,10 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ github.token }}
 
-      - name: Run e2e tests (web)
-        env:
-          PLAYWRIGHT_DISABLE_WEBSERVER: true
-          CIGHT_URL: ${{ vars.CIGHT_URL }}
-          CIGHT_SHARD: 2/2 # cight: the two e2e jobs map as two parts of one map
+      - name: Docker build
         id: docker
         shell: bash
-        # cight: the stack starts inside `cight run`, so its containers get cight's agent; on a
-        # push the run maps, on a pull request it reports what cight would have run (shadow).
-        # The stack's script is upstream's own step, unchanged.
+        # the stack starts inside each `cight run` below, so its containers get cight's agent
         run: |
           cat > "$RUNNER_TEMP/cight-stack.sh" <<'CIGHT_STACK'
           for attempt in 1 2 3 4 5; do
@@ -675,8 +670,15 @@ jobs:
           done
           exit 1
           CIGHT_STACK
-          cight run -- bash -c 'bash -eo pipefail "$RUNNER_TEMP/cight-stack.sh" && pnpm test:web'
         if: ${{ !cancelled() }}
+
+      - run: curl -fsSL https://cight.verrou.sh/install.sh | CIGHT_VERSION=0.2.7 sh
+      - name: Run e2e tests (web)
+        env:
+          CIGHT_SUITE: "e2e-tests-web-test-web-${{ matrix.runner }}"
+          PLAYWRIGHT_DISABLE_WEBSERVER: true
+        run: cight run -- bash -c 'bash -eo pipefail "$RUNNER_TEMP/cight-stack.sh" && pnpm test:web'
+        if: ${{ !cancelled() && steps.docker.outcome == 'success' }}
 
       - name: Archive e2e test (web) results
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -687,8 +689,9 @@ jobs:
 
       - name: Run maintenance tests
         env:
+          CIGHT_SUITE: "e2e-tests-web-test-web-maintenance-${{ matrix.runner }}"
           PLAYWRIGHT_DISABLE_WEBSERVER: true
-        run: pnpm test:web:maintenance
+        run: cight run -- bash -c 'bash -eo pipefail "$RUNNER_TEMP/cight-stack.sh" && pnpm test:web:maintenance'
         if: ${{ !cancelled() && steps.docker.outcome == 'success' }}
 
       - name: Archive maintenance tests (web) results
